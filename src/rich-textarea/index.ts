@@ -21,7 +21,7 @@ const RichTextarea: Component<Props<RichTextareaProps>> = (props) => {
       <style>
         ${style}
       </style>
-      <p class="rich-textarea" contenteditable>${props.value}</p>
+      <p class="rich-textarea" contenteditable="true" data-rich-textarea>${props.value}</p>
     </host>
   `;
 };
