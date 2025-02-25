@@ -93,7 +93,7 @@ export const getCursorPosition = () => {
    * - 如果选中内容是文本内容，anchorNode 则是 TextNode
    * - 需要计算当前位置之前，所有文本长度与br数量之和
    */
-  // 如果选中的节点是输入框节点
+  // 如果锚点节点是输入框节点
   if (isRichTextarea(anchorNode)) {
     // 初始化位置
     let pos = 0;
@@ -121,7 +121,7 @@ export const getCursorPosition = () => {
     return pos;
   }
 
-  // 如果选中的节点是文本节点
+  // 如果锚点节点是文本节点
   if (isTextNode(anchorNode)) {
     // 初始化位置
     let pos = 0;
