@@ -69,7 +69,7 @@ export const getCursorPosition = () => {
   const selection = window.getSelection();
   // 如果选区对象不存在或者选区对象的 range 数量为 0，则返回 0
   // 1. 返回默认值 0 的情况:
-  // - selection 不存在
+  // - 选区对象不存在
   // - 当前不存在被选择的内容
   // - 当前选区有被选中文本，而非光标状态
   if (!selection || !selection.rangeCount || !selection.isCollapsed) return 0;
@@ -93,38 +93,54 @@ export const getCursorPosition = () => {
    * - 如果选中内容是文本内容，anchorNode 则是 TextNode
    * - 需要计算当前位置之前，所有文本长度与br数量之和
    */
+  // 如果选中的节点是输入框节点
   if (isRichTextarea(anchorNode)) {
+    // 初始化位置
     let pos = 0;
-
+    // 获取输入框节点的子节点
     const childNodes = textareaNode.childNodes;
+    // 获取选中的偏移量
     const anchorOffset = selection.anchorOffset;
-
+    // 遍历子节点
     for (let i = 0; i < anchorOffset; i++) {
+      // 获取子节点
       const child = childNodes[i];
+      // 如果子节点是文本节点
       if (isTextNode(child)) {
+        // 累加文本长度
         pos += child.length;
-      } else if (isBrNode(child)) {
+        continue;
+      }
+      // 如果子节点是 br 节点
+      if (isBrNode(child)) {
+        // 累加 br 数量
         pos += 1;
       }
     }
+    // 返回光标位置
     return pos;
   }
 
+  // 如果选中的节点是文本节点
   if (isTextNode(anchorNode)) {
+    // 初始化位置
     let pos = 0;
-
+    // 获取输入框节点的子节点
     const childNodes = textareaNode.childNodes;
+    // 获取选中的偏移量
     const anchorOffset = selection.anchorOffset;
-
+    // 遍历子节点
     for (let i = 0; i < childNodes.length; i++) {
+      // 获取子节点
       const child = childNodes[i];
       // 当前光标刚好在文本节点上
       if (child === anchorNode) {
+        // 累加偏移量
         pos += anchorOffset;
-
+        // 返回光标位置
         return pos;
       }
-
+      // 累加文本长度或 br 数量
       pos += isTextNode(child) ? child.length : 1;
     }
   }
