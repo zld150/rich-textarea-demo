@@ -1,9 +1,10 @@
 /**
  * 插入内容到编辑器
  * @param content 插入的内容
+ * @param isFirstCreateNewLine 是否是第一次创建新空白行
  * @returns
  */
-export const insertContentIntoEditor = (content: string) => {
+export const insertContentIntoEditor = (content: string, isFirstCreateNewLine: boolean = false) => {
   // 获取当前文档的选区对象
   const selection = window.getSelection();
   // 如果选区对象不存在或者选区对象的 range 数量为 0，则返回 false
@@ -23,10 +24,19 @@ export const insertContentIntoEditor = (content: string) => {
 
   // 插入新的文本节点
   range.insertNode(textNode);
-  // 光标聚焦到尾部
-  range.collapse();
+  // 如果插入的是空格
+  if (isFirstCreateNewLine) {
+    // 如果我们插入的是两个 \n, 需要将光标向前移一位；
+    // 因为实际通过键盘移动光标的时候，是不会将光标移动到最后一个 \n 之后的
+    range.setStart(textNode, 1);
+    range.setEnd(textNode, 1);
+  } else {
+    // 光标聚焦到尾部
+    range.collapse();
+  }
   // 将新的 range 添加到选区
   selection.addRange(range);
+
   // 返回 true 表示插入成功
   return true;
 };

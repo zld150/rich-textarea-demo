@@ -1,3 +1,4 @@
+import platform from "platform";
 import { insertContentIntoEditor } from "./cursor";
 
 /**
@@ -23,7 +24,7 @@ const ALLOW_INPUT_TYPE = [
 
 // 定义后续更新值的函数，目前先不实现，仅仅打印当前结果
 const updateValue = () => {
-  console.log("update value, current value is:", richTextarea?.innerText);
+  console.log("update value, current value is：", richTextarea?.innerText);
 };
 
 // 监听paste事件
@@ -49,18 +50,80 @@ const pasteHandler = (e: ClipboardEvent) => {
 const beforeInputHandler = (e: InputEvent) => {
   //   const target = e.target as HTMLElement;
   const eventType = e.inputType;
-  console.log("eventType>>>", e.type, e);
 
   // 非重点关注的事件类型直接阻止
   if (!ALLOW_INPUT_TYPE.includes(eventType)) {
     e.preventDefault();
     return;
   }
-
+  // 粘贴输入事件
   if (eventType === "insertFromPaste") {
     e.preventDefault();
     const result = insertContentIntoEditor(e.data ?? "");
     if (result) updateValue();
+    return;
+  }
+  // 拖拽输入事件
+  if (eventType === "insertFromDrop") {
+    e.preventDefault();
+    // 从 dataTransfer 中获取到当前拖进来的文本
+    const dropData = e.dataTransfer?.getData("text") || "";
+    // 文本内容存在，则将其插入
+    if (dropData) {
+      const result = insertContentIntoEditor(dropData);
+      !result || updateValue();
+    }
+    return;
+  }
+};
+
+// 手动触发 input 事件
+const dispatchInnerInputEvent = (event: InputEvent, inputType: string, data: string | null = null) => {
+  // 使用 requestAnimationFrame 也是等 dom 内容更新后我们再出发，使之与浏览器默认的触发顺序一致
+  requestAnimationFrame(() => {
+    event.target?.dispatchEvent(
+      new InputEvent("input", {
+        inputType, // 输入类型
+        bubbles: event.bubbles, // 是否冒泡
+        cancelable: event.cancelable, // 是否可取消
+        data, // 输入内容
+      })
+    );
+  });
+};
+
+// 判断是否为苹果系产品
+const isApplePlatform = () => ["iOS", "OS X"].includes(platform.os?.family || "");
+
+/**
+ * 监听键盘按下事件
+ * 拦截 ctrl + z (撤销 undo) 与 ctrl + shift +z (恢复 redo)
+ * @param e 键盘事件
+ */
+const onKeydown = (e: KeyboardEvent) => {
+  // 苹果系产品，拦截 cmd + z / cmd + shift + z
+  // 其他产品，拦截 ctrl + z / ctrl + shift + z
+
+  // 获取 ctrl 键是否按下
+  const ctrlKey = isApplePlatform() ? e.metaKey : e.ctrlKey;
+
+  // 撤销 undo
+  if (ctrlKey && e.code === "KeyZ" && !e.shiftKey) {
+    e.preventDefault();
+    // 获取当前的 textarea 节点
+    const textareaNode = e.target as HTMLElement;
+    // 触发 undo 类型的 beforeinput
+    textareaNode.dispatchEvent(new InputEvent("beforeinput", { data: null, inputType: "historyUndo" }));
+    return;
+  }
+
+  // 恢复 redo
+  if (ctrlKey && e.code === "KeyZ" && e.shiftKey) {
+    e.preventDefault();
+    // 获取当前的 textarea 节点
+    const textareaNode = e.target as HTMLElement;
+    // 触发 redo 类型的 beforeinput
+    textareaNode.dispatchEvent(new InputEvent("beforeinput", { data: null, inputType: "historyRedo" }));
     return;
   }
 };

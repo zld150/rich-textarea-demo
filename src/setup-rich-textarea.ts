@@ -5,7 +5,7 @@ export function setupRichTextarea(el: HTMLElement | null) {
   el.innerHTML = /*html*/ `
     <h3 style="text-align: center;">实现contenteditable替换textarea</h3>
     <div>
-      <rich-textarea value="hello world"></rich-textarea>
+      <rich-textarea value=""></rich-textarea>
     </div>      
   `;
 }
