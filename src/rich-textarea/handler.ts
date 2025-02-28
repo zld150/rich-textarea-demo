@@ -1,5 +1,7 @@
 import platform from "platform";
-import { insertContentIntoEditor } from "./cursor";
+import { insertContentIntoEditor, redoHistory, undoHistory, getCursorPosition } from "./cursor";
+import { EditorStack } from "./historyStack";
+import { debounce } from "../utils/debounceThrottle";
 
 /**
  * 重点关注的输入类型
@@ -24,7 +26,7 @@ const ALLOW_INPUT_TYPE = [
 
 // 定义后续更新值的函数，目前先不实现，仅仅打印当前结果
 const updateValue = () => {
-  console.log("update value, current value is：", richTextarea?.innerText);
+  console.log("update value, current value is：", richTextarea?.innerText, editorHistory.size);
 };
 
 // 监听paste事件
@@ -48,12 +50,25 @@ const pasteHandler = (e: ClipboardEvent) => {
 
 // 在beforeInput中对非重点关注事件类型直接阻止
 const beforeInputHandler = (e: InputEvent) => {
-  //   const target = e.target as HTMLElement;
+  // 获取输入类型
   const eventType = e.inputType;
-
   // 非重点关注的事件类型直接阻止
   if (!ALLOW_INPUT_TYPE.includes(eventType)) {
     e.preventDefault();
+    return;
+  }
+  // 拦截历史操作，执行上述方法进行历史数据恢复
+  if (["historyUndo", "historyRedo"].includes(eventType)) {
+    e.preventDefault();
+    // undo（撤销）
+    if (eventType === "historyUndo") {
+      undoHistory(editorHistory, richTextarea!);
+    } else {
+      // redo（恢复）
+      redoHistory(editorHistory, richTextarea!);
+    }
+    // 手动触发 input 事件
+    dispatchInnerInputEvent(e, eventType);
     return;
   }
   // 粘贴输入事件
@@ -78,14 +93,14 @@ const beforeInputHandler = (e: InputEvent) => {
 };
 
 // 手动触发 input 事件
-const dispatchInnerInputEvent = (event: InputEvent, inputType: string, data: string | null = null) => {
+const dispatchInnerInputEvent = (e: InputEvent, inputType: string, data: string | null = null) => {
   // 使用 requestAnimationFrame 也是等 dom 内容更新后我们再出发，使之与浏览器默认的触发顺序一致
   requestAnimationFrame(() => {
-    event.target?.dispatchEvent(
+    e.target?.dispatchEvent(
       new InputEvent("input", {
         inputType, // 输入类型
-        bubbles: event.bubbles, // 是否冒泡
-        cancelable: event.cancelable, // 是否可取消
+        bubbles: e.bubbles, // 是否冒泡
+        cancelable: e.cancelable, // 是否可取消
         data, // 输入内容
       })
     );
@@ -100,13 +115,12 @@ const isApplePlatform = () => ["iOS", "OS X"].includes(platform.os?.family || ""
  * 拦截 ctrl + z (撤销 undo) 与 ctrl + shift +z (恢复 redo)
  * @param e 键盘事件
  */
-const onKeydown = (e: KeyboardEvent) => {
+const keydownHandler = (e: KeyboardEvent) => {
   // 苹果系产品，拦截 cmd + z / cmd + shift + z
   // 其他产品，拦截 ctrl + z / ctrl + shift + z
 
   // 获取 ctrl 键是否按下
   const ctrlKey = isApplePlatform() ? e.metaKey : e.ctrlKey;
-
   // 撤销 undo
   if (ctrlKey && e.code === "KeyZ" && !e.shiftKey) {
     e.preventDefault();
@@ -116,7 +130,6 @@ const onKeydown = (e: KeyboardEvent) => {
     textareaNode.dispatchEvent(new InputEvent("beforeinput", { data: null, inputType: "historyUndo" }));
     return;
   }
-
   // 恢复 redo
   if (ctrlKey && e.code === "KeyZ" && e.shiftKey) {
     e.preventDefault();
@@ -130,16 +143,47 @@ const onKeydown = (e: KeyboardEvent) => {
 
 // 监听input事件
 const inputHandler = (e: InputEvent) => {
-  const eventType = e.type;
-  console.log("eventType >", eventType, e);
+  // 除了操作 history 的事件，其余值更新，都直接进栈
+  if (!["historyUndo", "historyRedo"].includes(e.inputType)) {
+    editorHistory.push({
+      content: (e.target as HTMLElement).innerText,
+      pos: getCursorPosition(),
+    });
+  }
+  updateValue();
 };
 
+// 第一次 foucs 时，需要向栈中添加初始数据，否则无法恢复到第一条数据
+const focusHandler = (e: FocusEvent) => {
+  // 使用 requestAnimationFrame 是因为刚 focus 时，获取到的 pos 是不准确的
+  requestAnimationFrame(() => {
+    // 如果历史栈为空，则向栈中添加初始数据
+    if (!editorHistory.size) {
+      editorHistory.push({
+        content: (e.target as HTMLElement).innerText,
+        pos: getCursorPosition(),
+      });
+    }
+  });
+};
+
+// 防抖处理input入栈
+const debounceInput = (e: InputEvent) => {
+  debounce(inputHandler, 400, e);
+};
+
+// 初始化历史栈
+const editorHistory = new EditorStack();
 // 获取rich-textareaDOM
 const richTextarea: HTMLElement | null = document.querySelector(".rich-textarea");
 
-// 监听paste事件
-richTextarea?.addEventListener("paste", pasteHandler);
 // 监听beforeInput事件
 richTextarea?.addEventListener("beforeinput", beforeInputHandler);
 // 监听input事件
-richTextarea?.addEventListener("input", inputHandler as EventListener);
+richTextarea?.addEventListener("input", debounceInput as EventListener);
+// 监听paste事件
+richTextarea?.addEventListener("paste", pasteHandler);
+// 监听focus事件
+richTextarea?.addEventListener("focus", focusHandler);
+// 监听keydown事件
+richTextarea?.addEventListener("keydown", keydownHandler);

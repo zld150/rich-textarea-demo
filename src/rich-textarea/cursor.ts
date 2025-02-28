@@ -1,3 +1,5 @@
+import { EditorStack } from "./historyStack";
+
 /**
  * 插入内容到编辑器
  * @param content 插入的内容
@@ -157,4 +159,91 @@ export const getCursorPosition = () => {
 
   // 这里的返回基本不会执行，但是为了 ts 的类型安全，返回一个数字
   return 0;
+};
+
+/**
+ * 移动光标到指定位置
+ * @param textareaNode 输入框节点
+ * @param pos 光标位置
+ */
+export function moveCursorTo(textareaNode: Node, pos: number) {
+  // 获取当前文档的选区对象
+  const selection = window.getSelection();
+  // 如果选区对象不存在，则中断执行
+  if (!selection) return;
+  // 获取输入框节点的子节点
+  const childNodes = textareaNode.childNodes;
+  // 创建一个新的 range
+  const range = document.createRange();
+  // acc 用来记录遍历过了多少个字符
+  let acc = 0;
+  // TODO:遍历输入框的 childNodes 节点，要明白，当前输入框的内容已经被我们控制到只有文本节点与 br 节点了
+  for (let i = 0; i < childNodes.length; i++) {
+    // 当前遍历的子节点
+    const child = childNodes[i];
+    // 处理文本节点
+    if (isTextNode(child)) {
+      // 如果累加的文本长度大于等于光标位置，则设置光标位置
+      if (acc + child.length >= pos) {
+        // 计算偏移量
+        const offset = pos - acc;
+        // 设置光标位置
+        range.setStart(child, offset);
+        range.setEnd(child, offset);
+        // 跳出循环
+        break;
+      }
+      // 累加文本长度
+      acc += child.length;
+    }
+    // 处理 br 节点
+    if (isBrNode(child)) {
+      // 如果累加的 br 数量等于光标位置，则设置光标位置
+      if (acc + 1 === pos) {
+        /**
+         * 将光标放在 br 节点后面
+         * setStartBefore(): 设置起始点在节点之前
+         * setEndBefore(): 设置结束点在节点之前
+         * setStart(): 设置起始点在文本节点的指定位置
+         * setEnd(): 设置结束点在文本节点的指定位置
+         */
+        // 设置 Range 的起始点在指定节点(child)的后面
+        range.setStartAfter(child);
+        // 设置 Range 的结束点在指定节点(child)的后面
+        range.setEndAfter(child);
+        // 跳出循环
+        break;
+      }
+      // 累加 br 数量
+      acc += 1;
+    }
+  }
+  // 删除已有的 range
+  if (selection.rangeCount) selection.removeAllRanges();
+  // 更新 range
+  selection.addRange(range);
+}
+
+// 执行 undo 操作
+export const undoHistory = (stack: EditorStack, textareaNode: HTMLElement) => {
+  // 获取历史栈中当前指针位置的前一条数据
+  const item = stack.undo();
+  if (!item) return false;
+  // 通过 innerText 更新数据
+  textareaNode.innerText = item.content;
+  // 恢复光标位置
+  moveCursorTo(textareaNode, item.pos);
+  return true;
+};
+
+// 执行 redo 操作
+export const redoHistory = (stack: EditorStack, textareaNode: HTMLElement) => {
+  // 获取历史栈中当前指针位置的后一条数据
+  const item = stack.redo();
+  if (!item) return false;
+  // 通过 innerText 更新数据
+  textareaNode.innerText = item.content;
+  // 恢复光标位置
+  moveCursorTo(textareaNode, item.pos);
+  return true;
 };
