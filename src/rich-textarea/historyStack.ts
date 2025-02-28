@@ -43,9 +43,14 @@ export class EditorStack {
     console.log("pushStack, current histories>>>", this.histories, this.index);
   }
 
+  // 初始入栈
+  initPush(item: EditorStackItem) {
+    this.pushStack(item);
+  }
+
   // 防抖入栈
   debouncePush(item: EditorStackItem) {
-    debounce(this.pushStack, 400, this, item);
+    debounce(this.pushStack, 300, this, item);
   }
 
   // 执行 undo(撤销)，将索引向前移动，获取到前一条历史数据后返回

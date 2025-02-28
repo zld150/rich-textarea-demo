@@ -74,7 +74,8 @@ const beforeInputHandler = (e: InputEvent) => {
   if (eventType === "insertFromPaste") {
     e.preventDefault();
     const result = insertContentIntoEditor(e.data ?? "");
-    if (result) updateValue();
+    // 如果插入成功，则手动触发 input 事件入栈
+    !result || dispatchInnerInputEvent(e, eventType);
     return;
   }
   // 拖拽输入事件
@@ -85,7 +86,8 @@ const beforeInputHandler = (e: InputEvent) => {
     // 文本内容存在，则将其插入
     if (dropData) {
       const result = insertContentIntoEditor(dropData);
-      !result || updateValue();
+      // 如果插入成功，则手动触发 input 事件入栈
+      !result || dispatchInnerInputEvent(e, eventType);
     }
     return;
   }
@@ -93,7 +95,7 @@ const beforeInputHandler = (e: InputEvent) => {
 
 // 手动触发 input 事件
 const dispatchInnerInputEvent = (e: InputEvent, inputType: string, data: string | null = null) => {
-  // 使用 requestAnimationFrame 也是等 dom 内容更新后我们再出发，使之与浏览器默认的触发顺序一致
+  // 使用 requestAnimationFrame 也是等 dom 内容更新后我们再触发，使之与浏览器默认的触发顺序一致
   requestAnimationFrame(() => {
     e.target?.dispatchEvent(
       new InputEvent("input", {
@@ -158,7 +160,7 @@ const focusHandler = (e: FocusEvent) => {
   requestAnimationFrame(() => {
     // 如果历史栈为空，则向栈中添加初始数据
     if (!editorHistory.size) {
-      editorHistory.debouncePush({
+      editorHistory.initPush({
         content: (e.target as HTMLElement).innerText,
         pos: getCursorPosition(),
       });
