@@ -169,7 +169,7 @@ const focusHandler = (e: FocusEvent) => {
 
 // 防抖处理input入栈
 const debounceInput = (e: InputEvent) => {
-  debounce(inputHandler, 400, e);
+  debounce(inputHandler, 300, e);
 };
 
 // 初始化历史栈

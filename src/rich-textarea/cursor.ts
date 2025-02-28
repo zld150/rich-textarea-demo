@@ -18,7 +18,7 @@ export const insertContentIntoEditor = (content: string, isFirstCreateNewLine: b
   // 根据已有第一个 range，clone 创建一个新的 range
   const range = selection.getRangeAt(0).cloneRange();
 
-  // 移除当前所有选区
+  // 移除当前所有选取
   selection.removeAllRanges();
 
   // 创建待插入的文本节点
