@@ -1,3 +1,5 @@
+import { debounce } from "../utils/debounceThrottle";
+
 // 栈元素，包含输入框内容，以及光标位置，恢复栈中数据时，也需要恢复光标位置
 export interface EditorStackItem {
   content: string;
@@ -24,7 +26,7 @@ export class EditorStack {
   }
 
   // 向栈中增加数据
-  push(item: EditorStackItem) {
+  private pushStack(item: EditorStackItem) {
     // 情况1: 当栈已满时
     if (this.index + 1 === this.stackSize) {
       // 删除最老的那条记录(索引0)，保留从索引1到当前索引的记录
@@ -38,6 +40,12 @@ export class EditorStack {
     this.histories.push(item);
     // 更新指针位置
     this.index = this.histories.length - 1;
+    console.log("pushStack, current histories>>>", this.histories, this.index);
+  }
+
+  // 防抖入栈
+  debouncePush(item: EditorStackItem) {
+    debounce(this.pushStack, 400, this, item);
   }
 
   // 执行 undo(撤销)，将索引向前移动，获取到前一条历史数据后返回

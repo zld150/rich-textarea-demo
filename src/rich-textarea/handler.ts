@@ -1,7 +1,6 @@
 import platform from "platform";
 import { insertContentIntoEditor, redoHistory, undoHistory, getCursorPosition } from "./cursor";
 import { EditorStack } from "./historyStack";
-import { debounce } from "../utils/debounceThrottle";
 
 /**
  * 重点关注的输入类型
@@ -26,7 +25,7 @@ const ALLOW_INPUT_TYPE = [
 
 // 定义后续更新值的函数，目前先不实现，仅仅打印当前结果
 const updateValue = () => {
-  console.log("update value, current value is：", richTextarea?.innerText, editorHistory.size);
+  console.log("update value, current value is>>>", richTextarea?.innerText);
 };
 
 // 监听paste事件
@@ -145,7 +144,7 @@ const keydownHandler = (e: KeyboardEvent) => {
 const inputHandler = (e: InputEvent) => {
   // 除了操作 history 的事件，其余值更新，都直接进栈
   if (!["historyUndo", "historyRedo"].includes(e.inputType)) {
-    editorHistory.push({
+    editorHistory.debouncePush({
       content: (e.target as HTMLElement).innerText,
       pos: getCursorPosition(),
     });
@@ -159,17 +158,12 @@ const focusHandler = (e: FocusEvent) => {
   requestAnimationFrame(() => {
     // 如果历史栈为空，则向栈中添加初始数据
     if (!editorHistory.size) {
-      editorHistory.push({
+      editorHistory.debouncePush({
         content: (e.target as HTMLElement).innerText,
         pos: getCursorPosition(),
       });
     }
   });
-};
-
-// 防抖处理input入栈
-const debounceInput = (e: InputEvent) => {
-  debounce(inputHandler, 300, e);
 };
 
 // 初始化历史栈
@@ -180,7 +174,7 @@ const richTextarea: HTMLElement | null = document.querySelector(".rich-textarea"
 // 监听beforeInput事件
 richTextarea?.addEventListener("beforeinput", beforeInputHandler);
 // 监听input事件
-richTextarea?.addEventListener("input", debounceInput as EventListener);
+richTextarea?.addEventListener("input", inputHandler as EventListener);
 // 监听paste事件
 richTextarea?.addEventListener("paste", pasteHandler);
 // 监听focus事件
