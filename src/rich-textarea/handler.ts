@@ -1,5 +1,5 @@
 import platform from "platform";
-import { insertContentIntoEditor, redoHistory, undoHistory, getCursorPosition } from "./cursor";
+import { insertContentIntoEditor, redoHistory, undoHistory, getCursorPosition, isCursorAtParagraphEnd } from "./cursor";
 import { EditorStack } from "./historyStack";
 
 /**
@@ -26,25 +26,6 @@ const ALLOW_INPUT_TYPE = [
 // 定义后续更新值的函数，目前先不实现，仅仅打印当前结果
 const updateValue = () => {
   console.log("update value, current value is>>>", richTextarea?.innerText);
-};
-
-// 监听paste事件
-const pasteHandler = (e: ClipboardEvent) => {
-  // 阻止默认事件，否则系统会派发一个data为null的beforeinput与input事件
-  e.preventDefault();
-  // 获取输入的纯文本内容
-  const pasteText = e.clipboardData?.getData("text") || "";
-  // 手动触发一个 beforeinput 事件，虽然这里 inputType 可以随意填写，为了语义化以及后续排错等，还是按规定触发 insertFromPaste 类型的事件。
-  if (pasteText) {
-    e.target?.dispatchEvent(
-      new InputEvent("beforeinput", {
-        inputType: "insertFromPaste", // 输入类型为粘贴
-        data: pasteText, // 输入内容
-        bubbles: true, // 冒泡
-        cancelable: true, // 可取消
-      })
-    );
-  }
 };
 
 // 在beforeInput中对非重点关注事件类型直接阻止
@@ -91,6 +72,29 @@ const beforeInputHandler = (e: InputEvent) => {
     }
     return;
   }
+  // 换行输入事件
+  if (["insertParagraph", "insertLineBreak"].includes(eventType)) {
+    e.preventDefault();
+    // 判断光标是否在段落尾部
+    const isCursorAtEnd = isCursorAtParagraphEnd();
+    // 插入两个换行符
+    const result = insertContentIntoEditor("", isCursorAtEnd ? 2 : 1);
+    // 如果插入成功，则手动触发 input 事件入栈
+    !result || dispatchInnerInputEvent(e, eventType);
+    return;
+  }
+};
+
+// 监听input事件
+const inputHandler = (e: InputEvent) => {
+  // 除了操作 history 的事件，其余值更新，都直接进栈
+  if (!["historyUndo", "historyRedo"].includes(e.inputType)) {
+    editorHistory.debouncePush({
+      content: (e.target as HTMLElement).innerText,
+      pos: getCursorPosition(),
+    });
+  }
+  updateValue();
 };
 
 // 手动触发 input 事件
@@ -142,16 +146,23 @@ const keydownHandler = (e: KeyboardEvent) => {
   }
 };
 
-// 监听input事件
-const inputHandler = (e: InputEvent) => {
-  // 除了操作 history 的事件，其余值更新，都直接进栈
-  if (!["historyUndo", "historyRedo"].includes(e.inputType)) {
-    editorHistory.debouncePush({
-      content: (e.target as HTMLElement).innerText,
-      pos: getCursorPosition(),
-    });
+// 监听paste事件
+const pasteHandler = (e: ClipboardEvent) => {
+  // 阻止默认事件，否则系统会派发一个data为null的beforeinput与input事件
+  e.preventDefault();
+  // 获取输入的纯文本内容
+  const pasteText = e.clipboardData?.getData("text") || "";
+  // 手动触发一个 beforeinput 事件，虽然这里 inputType 可以随意填写，为了语义化以及后续排错等，还是按规定触发 insertFromPaste 类型的事件。
+  if (pasteText) {
+    e.target?.dispatchEvent(
+      new InputEvent("beforeinput", {
+        inputType: "insertFromPaste", // 输入类型为粘贴
+        data: pasteText, // 输入内容
+        bubbles: true, // 冒泡
+        cancelable: true, // 可取消
+      })
+    );
   }
-  updateValue();
 };
 
 // 第一次 foucs 时，需要向栈中添加初始数据，否则无法恢复到第一条数据
@@ -183,3 +194,6 @@ richTextarea?.addEventListener("paste", pasteHandler);
 richTextarea?.addEventListener("focus", focusHandler);
 // 监听keydown事件
 richTextarea?.addEventListener("keydown", keydownHandler);
+
+// TODO:需要初始化清空输入框内容，因为一开始在输入框内会有三个空的文本节点，不清除它们有可能会造成意料之外的bug
+if (richTextarea) richTextarea.innerText = "";

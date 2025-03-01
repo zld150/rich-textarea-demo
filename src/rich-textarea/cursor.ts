@@ -3,42 +3,53 @@ import { EditorStack } from "./historyStack";
 /**
  * 插入内容到编辑器
  * @param content 插入的内容
- * @param isFirstCreateNewLine 是否是第一次创建新空白行
+ * @param createNewLineNum 创建新空白行数量
  * @returns
  */
-export const insertContentIntoEditor = (content: string, isFirstCreateNewLine: boolean = false) => {
+export const insertContentIntoEditor = (content: string, createNewLineNum: number = 0) => {
   // 获取当前文档的选区对象
   const selection = window.getSelection();
   // 如果选区对象不存在或者选区对象的 range 数量为 0，则返回 false
   if (!selection || !selection.rangeCount) return false;
-
   // 如果选区对象不是折叠的，则将已选中内容删除，删除后，selection 的属性会自动更新，后续不必重新获取 selection
   if (!selection.isCollapsed) selection.deleteFromDocument();
-
   // 根据已有第一个 range，clone 创建一个新的 range
   const range = selection.getRangeAt(0).cloneRange();
-
   // 移除当前所有选取
   selection.removeAllRanges();
-
-  // 创建待插入的文本节点
-  const textNode = document.createTextNode(content);
-
-  // 插入新的文本节点
-  range.insertNode(textNode);
-  // 如果插入的是空格
-  if (isFirstCreateNewLine) {
-    // 如果我们插入的是两个 \n, 需要将光标向前移一位；
-    // 因为实际通过键盘移动光标的时候，是不会将光标移动到最后一个 \n 之后的
-    range.setStart(textNode, 1);
-    range.setEnd(textNode, 1);
-  } else {
+  // 插入文本节点
+  if (!createNewLineNum) {
+    // 创建待插入的文本节点
+    const textNode = document.createTextNode(content);
+    // 插入新的文本节点
+    range.insertNode(textNode);
     // 光标聚焦到尾部
     range.collapse();
   }
+  // 光标不在段落尾部，插入一个新空白行
+  if (createNewLineNum === 1) {
+    // 创建 br 节点
+    const brNode = document.createElement("br");
+    // 插入 br 节点
+    range.insertNode(brNode);
+    // 光标聚焦到尾部
+    range.collapse();
+  }
+  // 光标在段落尾部，插入两个新空白行
+  if (createNewLineNum === 2) {
+    // 创建 br 节点
+    const brNodeOne = document.createElement("br");
+    const brNodeTwo = document.createElement("br");
+    // 插入 br 节点
+    range.insertNode(brNodeOne);
+    range.insertNode(brNodeTwo);
+    // 如果我们插入的是两个br, 需要将光标移动到第一个br的后面；
+    // 因为实际通过键盘移动光标的时候，是不会将光标移动到最后一个br之后的
+    range.setStartAfter(brNodeOne);
+    range.setEndAfter(brNodeOne);
+  }
   // 将新的 range 添加到选区
   selection.addRange(range);
-
   // 返回 true 表示插入成功
   return true;
 };
@@ -204,8 +215,8 @@ export function moveCursorTo(textareaNode: Node, pos: number) {
          * 将光标放在 br 节点后面
          * setStartBefore(): 设置起始点在节点之前
          * setEndBefore(): 设置结束点在节点之前
-         * setStart(): 设置起始点在文本节点的指定位置
-         * setEnd(): 设置结束点在文本节点的指定位置
+         * setStart(): 设置起始点在节点的指定位置
+         * setEnd(): 设置结束点在节点的指定位置
          */
         // 设置 Range 的起始点在指定节点(child)的后面
         range.setStartAfter(child);
@@ -246,4 +257,36 @@ export const redoHistory = (stack: EditorStack, textareaNode: HTMLElement) => {
   // 恢复光标位置
   moveCursorTo(textareaNode, item.pos);
   return true;
+};
+
+/**
+ * 判断光标是否在段落尾部
+ * @returns boolean
+ */
+export const isCursorAtParagraphEnd = (): boolean => {
+  // 获取当前文档的选区对象
+  const selection = window.getSelection();
+  // 如果选区对象不存在或者选区对象的 range 数量为 0，则返回 false
+  if (!selection || !selection.rangeCount || !selection.isCollapsed) return false;
+  // 获取选区锚点节点
+  const anchorNode = selection.anchorNode;
+  // 根据锚点节点查找输入框节点
+  const textareaNode = findRichTextarea(anchorNode);
+  // 如果没有找到输入框节点，则返回 false
+  if (!textareaNode) return false;
+  // 获取当前光标位置
+  const cursorPos = getCursorPosition();
+  // 计算输入框内容的总长度
+  let totalLength = 0;
+  const childNodes = textareaNode.childNodes;
+  for (let i = 0; i < childNodes.length; i++) {
+    const child = childNodes[i];
+    if (isTextNode(child)) {
+      totalLength += child.length;
+    } else if (isBrNode(child)) {
+      totalLength += 1;
+    }
+  }
+  // 判断光标是否在段落尾部（光标位置等于内容总长度）
+  return cursorPos === totalLength;
 };
