@@ -1,5 +1,5 @@
 import platform from "platform";
-import { insertContentIntoEditor, redoHistory, undoHistory, getCursorPosition, isCursorAtParagraphEnd } from "./cursor";
+import { insertContentIntoEditor, redoHistory, undoHistory, getCursorPosition } from "./cursor";
 import { EditorStack } from "./historyStack";
 
 /**
@@ -76,9 +76,9 @@ const beforeInputHandler = (e: InputEvent) => {
   if (["insertParagraph", "insertLineBreak"].includes(eventType)) {
     e.preventDefault();
     // 判断光标是否在段落尾部
-    const isCursorAtEnd = isCursorAtParagraphEnd();
+    // const isCursorAtEnd = isCursorAtParagraphEnd();
     // 插入两个换行符
-    const result = insertContentIntoEditor("", isCursorAtEnd ? 2 : 1);
+    const result = insertContentIntoEditor("", true);
     // 如果插入成功，则手动触发 input 事件入栈
     !result || dispatchInnerInputEvent(e, eventType);
     return;

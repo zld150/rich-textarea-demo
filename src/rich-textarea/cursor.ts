@@ -3,10 +3,10 @@ import { EditorStack } from "./historyStack";
 /**
  * 插入内容到编辑器
  * @param content 插入的内容
- * @param createNewLineNum 创建新空白行数量
+ * @param isCreateNewLine 是否创建新空白行
  * @returns
  */
-export const insertContentIntoEditor = (content: string, createNewLineNum: number = 0) => {
+export const insertContentIntoEditor = (content: string, isCreateNewLine: boolean = false) => {
   // 获取当前文档的选区对象
   const selection = window.getSelection();
   // 如果选区对象不存在或者选区对象的 range 数量为 0，则返回 false
@@ -15,6 +15,8 @@ export const insertContentIntoEditor = (content: string, createNewLineNum: numbe
   if (!selection.isCollapsed) selection.deleteFromDocument();
   // 根据已有第一个 range，clone 创建一个新的 range
   const range = selection.getRangeAt(0).cloneRange();
+  // 根据光标位置判断是否需要创建几个 br 节点
+  const createNewLineNum = isCreateNewLine ? (isCursorAtParagraphEnd() ? 2 : 1) : 0;
   // 移除当前所有选取
   selection.removeAllRanges();
   // 插入文本节点
